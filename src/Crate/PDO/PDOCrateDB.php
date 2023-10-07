@@ -274,7 +274,7 @@ class PDOCrateDB extends BasePDO implements PDOInterface
         $statement = $this->prepare($statement);
         $result    = $statement->execute();
 
-        return $result === false ? false : $statement;
+        return $result === false ? false : $result;
     }
 
     /**
