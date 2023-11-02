@@ -29,6 +29,7 @@ use Closure;
 use Crate\Stdlib\ArrayUtils;
 use Crate\Stdlib\CollectionInterface;
 use Crate\Stdlib\CrateConst;
+use Doctrine\DBAL\Driver\Result;
 use IteratorAggregate;
 use PDOStatement as BasePDOStatement;
 
@@ -132,9 +133,8 @@ class PDOStatement extends BasePDOStatement implements IteratorAggregate
      *
      * @internal
      *
-     * @return bool
      */
-    private function hasExecuted()
+    private function hasExecuted(): bool
     {
         return ($this->collection !== null || $this->errorCode !== null);
     }
@@ -144,9 +144,8 @@ class PDOStatement extends BasePDOStatement implements IteratorAggregate
      *
      * @internal
      *
-     * @return bool
      */
-    private function isSuccessful()
+    private function isSuccessful(): bool
     {
         if (!$this->hasExecuted()) {
             // @codeCoverageIgnoreStart
@@ -160,11 +159,11 @@ class PDOStatement extends BasePDOStatement implements IteratorAggregate
     /**
      * Get the fetch style to be used
      *
+     * @return int
      * @internal
      *
-     * @return int
      */
-    private function getFetchStyle()
+    private function getFetchStyle(): int
     {
         return $this->options['fetchMode'] ?: $this->pdo->getAttribute(PDOCrateDB::ATTR_DEFAULT_FETCH_MODE);
     }
@@ -172,11 +171,11 @@ class PDOStatement extends BasePDOStatement implements IteratorAggregate
     /**
      * Update all the bound column references
      *
-     * @internal
-     *
      * @param array $row
      *
      * @return void
+     * @internal
+     *
      */
     private function updateBoundColumns(array $row)
     {
@@ -194,7 +193,7 @@ class PDOStatement extends BasePDOStatement implements IteratorAggregate
             }
 
             // Update by reference
-            $value           = $this->typedValue($row[$index], $metadata['type']);
+            $value = $this->typedValue($row[$index], $metadata['type']);
             $metadata['ref'] = $value;
         }
     }
@@ -202,9 +201,9 @@ class PDOStatement extends BasePDOStatement implements IteratorAggregate
     /**
      * {@inheritDoc}
      */
-    public function execute($input_parameters = null): bool
+    public function execute($params = null): Result
     {
-        $params = ArrayUtils::toArray($input_parameters);
+        $params = ArrayUtils::toArray($params);
 
         // In bulk mode, propagate input parameters 1:1.
         // In regular mode, translate input parameters to `bindValue` calls.
@@ -215,15 +214,15 @@ class PDOStatement extends BasePDOStatement implements IteratorAggregate
         $result = $this->request->__invoke($this, $this->sql, $params);
 
         if (is_array($result)) {
-            $this->errorCode    = strval($result['code']);
+            $this->errorCode = strval($result['code']);
             $this->errorMessage = strval($result['message']);
 
-            return false;
+            return new \Doctrine\DBAL\Driver\PDO\Result($this);
         }
 
         $this->collection = $result;
 
-        return true;
+        return new \Doctrine\DBAL\Driver\PDO\Result($this);
     }
 
     /**
@@ -282,6 +281,9 @@ class PDOStatement extends BasePDOStatement implements IteratorAggregate
                 $this->updateBoundColumns($row);
 
                 return true;
+
+            case PDOCrateDB::FETCH_COLUMN:
+                return reset($row);
 
             case PDOCrateDB::FETCH_NUM:
                 return $row;
